@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Import products{% endblock %}
+{% block content %}
+<div class="narrow">
+  <a class="back" href="{{ url_for('web.manage') }}">← Manage products</a>
+  <section class="intro"><div><h1>Import products</h1><p>Add products in bulk from a UTF-8 CSV.</p></div></section>
+  {% if error %}<p class="notice error" role="alert">{{ error }}</p>{% endif %}
+  <form class="panel content-panel stack" method="post" enctype="multipart/form-data">
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <label>CSV file<input type="file" name="csv" accept=".csv,text/csv" required aria-describedby="csv-rules"></label>
+    <p class="muted" id="csv-rules">Up to 1 MB and 5,000 data rows. Existing SKUs are skipped. Check the results for skipped or invalid rows.</p>
+    <div><button>Import CSV</button></div>
+  </form>
+  {% if report %}
+    <section class="panel content-panel stack" aria-labelledby="import-results">
+      <h2 id="import-results">Import results</h2>
+      <p role="status"><strong>{{ report.inserted }} added</strong> · {{ report.duplicates }} duplicates · {{ report.invalid }} invalid · {{ report.blank }} blank</p>
+      {% if report.issues %}
+        <details open>
+          <summary>Rows to review</summary>
+          <ul class="issues">
+            {% for line, message in report.issues %}<li><strong>Line {{ line }}</strong> — {{ message }}</li>{% endfor %}
+          </ul>
+        </details>
+      {% endif %}
+      <div><a href="{{ url_for('web.manage') }}">View inventory</a></div>
+    </section>
+  {% endif %}
+  <section class="panel content-panel stack">
+    <h2>Expected columns</h2>
+    <p><code>name, sku, description, category, price, stock, weight_kg</code></p>
+    <p class="muted">Use plain text for product names. Rows with HTML tags in the name are rejected.</p>
+    <p class="muted">Blank categories become Uncategorized. Description and weight may be blank. Prices are USD and may use a dollar sign or the word “free”.</p>
+  </section>
+</div>
+{% endblock %}

@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Order confirmed{% endblock %}
+{% block content %}
+<div class="narrow">
+  <a class="back" href="{{ url_for('web.catalog') }}">← Product catalog</a>
+  <section class="intro"><div><h1>Order confirmed</h1><p>Your simulated payment was approved and stock was updated.</p></div></section>
+  <section class="panel content-panel stack" aria-label="Order receipt">
+    <h2>Order receipt</h2>
+    <dl class="facts">
+      <div><dt>Order ID</dt><dd class="sku">{{ order.id }}</dd></div>
+      <div><dt>Product</dt><dd>{{ order.product_name }} · {{ order.sku }}</dd></div>
+      <div><dt>Quantity</dt><dd>{{ "{:,}".format(order.quantity) }}</dd></div>
+      <div><dt>Unit price</dt><dd>{{ order.unit_price_cents | money }}</dd></div>
+      <div><dt>Placed (UTC)</dt><dd>{{ order.created_at }}</dd></div>
+      <div class="total"><dt>Total</dt><dd>{{ (order.unit_price_cents * order.quantity) | money }}</dd></div>
+    </dl>
+    <div><a class="button" href="{{ url_for('web.catalog') }}">Continue shopping</a></div>
+  </section>
+</div>
+{% endblock %}

@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<div class="narrow">
+  <section class="intro"><div><h1>{{ title }}</h1><p>{{ message }}</p></div></section>
+  <div class="actions">
+    <a class="button" href="{{ url_for('web.catalog') }}">Product catalog</a>
+    <a class="button secondary" href="{{ url_for('web.manage') }}">Manage products</a>
+  </div>
+</div>
+{% endblock %}

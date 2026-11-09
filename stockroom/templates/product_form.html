@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}{{ "Edit product" if product else "New product" }}{% endblock %}
+{% block content %}
+<div class="narrow">
+  <a class="back" href="{{ url_for('web.manage') }}">← Manage products</a>
+  <section class="intro">
+    <div>
+      <h1>{{ "Edit product" if product else "New product" }}</h1>
+      <p>{{ product.sku if product else "Add a new item to the catalog." }}</p>
+    </div>
+  </section>
+  {% if error %}<p class="notice error" role="alert">{{ error }}</p>{% endif %}
+  <form class="panel content-panel field-grid" method="post">
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    {% if product %}<input type="hidden" name="version" value="{{ version }}">{% endif %}
+    <label class="wide">Product name<input name="name" value="{{ values.get('name', '') }}" maxlength="120" required></label>
+    <label>SKU<input name="sku" value="{{ values.get('sku', '') }}" maxlength="40" required></label>
+    <label>Category <span class="optional">(optional)</span><input name="category" value="{{ values.get('category', '') }}" maxlength="80" placeholder="Uncategorized"></label>
+    <label class="wide">Description <span class="optional">(optional)</span><textarea name="description" maxlength="2000" rows="4">{{ values.get('description', '') }}</textarea></label>
+    <label>Price (USD)<input name="price" type="number" min="0" max="999999.99" step="0.01" value="{{ values.get('price', '') }}" required></label>
+    <label>Stock<input name="stock" type="number" min="0" max="999999" step="1" value="{{ values.get('stock', '') }}" required></label>
+    <label>Weight (kg) <span class="optional">(optional)</span><input name="weight_kg" type="number" min="0" max="999999.999" step="0.001" value="{{ values.get('weight_kg', '') }}"></label>
+    <div class="actions wide">
+      <button>{{ "Save changes" if product else "Create product" }}</button>
+      <a class="button secondary" href="{{ url_for('web.manage') }}">Cancel</a>
+    </div>
+  </form>
+  {% if product %}
+    <details class="panel content-panel delete-panel">
+      <summary>Delete product</summary>
+      <p>Remove {{ product.name }} from the catalog? Existing receipts will still be available.</p>
+      <form method="post" action="{{ url_for('web.delete_product', product_id=product.id) }}">
+        <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+        <input type="hidden" name="version" value="{{ version }}">
+        <button class="danger">Confirm deletion</button>
+      </form>
+    </details>
+  {% endif %}
+</div>
+{% endblock %}

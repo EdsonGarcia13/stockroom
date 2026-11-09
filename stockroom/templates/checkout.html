@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}{{ product.name }}{% endblock %}
+{% block content %}
+<a class="back" href="{{ url_for('web.catalog') }}">← Product catalog</a>
+<section class="intro"><div><h1>{{ product.name }}</h1><p>{{ product.category }} · {{ product.sku }}</p></div></section>
+<div class="checkout-grid">
+  <section class="panel content-panel stack">
+    <h2>Product details</h2>
+    <p class="description">{{ product.description or "No description provided." }}</p>
+    <dl class="facts">
+      <div><dt>Stock</dt><dd>{{ "{:,}".format(product.stock) }} available</dd></div>
+      {% if product.weight_grams is not none %}
+        <div><dt>Weight</dt><dd>{{ product.weight_grams | weight_kg }} kg</dd></div>
+      {% endif %}
+    </dl>
+  </section>
+  <section class="panel content-panel stack">
+    <h2>Checkout</h2>
+    <p class="large-price">{{ product.price_cents | money }} <span>per unit</span></p>
+    {% if error %}<p class="notice error" role="alert">{{ error }}</p>{% endif %}
+    {% if product.stock %}
+      <form class="stack" method="post">
+        <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+        <input type="hidden" name="quote" value="{{ quote }}">
+        <label>Quantity<input type="number" name="quantity" min="1" max="{{ product.stock }}" step="1" value="{{ quantity }}" required></label>
+        <button>Place demo order</button>
+      </form>
+      <p class="muted">Payment is simulated. No card details are collected.</p>
+    {% else %}
+      <p class="notice">This product is currently out of stock.</p>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}
