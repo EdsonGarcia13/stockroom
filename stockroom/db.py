@@ -1,3 +1,4 @@
+import secrets
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
@@ -23,6 +24,19 @@ def init_db():
     db = get_db()
     db.execute("PRAGMA journal_mode = WAL")
     db.executescript(Path(__file__).with_name("schema.sql").read_text(encoding="utf-8"))
+
+
+def signing_secret():
+    db = get_db()
+    query = "SELECT value FROM app_settings WHERE name = 'signing_secret'"
+    saved = db.execute(query).fetchone()
+    if saved is None:
+        db.execute(
+            "INSERT INTO app_settings (name, value) VALUES ('signing_secret', ?) ON CONFLICT(name) DO NOTHING",
+            (secrets.token_hex(32),),
+        )
+        saved = db.execute(query).fetchone()
+    return saved["value"]
 
 
 @contextmanager

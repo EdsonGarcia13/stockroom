@@ -1,14 +1,13 @@
 import os
-import secrets
 import sqlite3
 from pathlib import Path
 
 import click
-from flask import Flask, render_template
+from flask import Flask, render_template, request
 from werkzeug.exceptions import SecurityError
 
 from .catalog import ValidationError, format_weight, import_products
-from .db import close_db, get_db, init_db
+from .db import close_db, get_db, init_db, signing_secret
 
 
 def create_app(config=None):
@@ -17,7 +16,7 @@ def create_app(config=None):
     app = Flask(__name__)
     app.config.from_mapping(
         DATABASE=os.environ.get("STOCKROOM_DATABASE", str(Path(app.instance_path) / "stockroom.sqlite3")),
-        SECRET_KEY=os.environ.get("STOCKROOM_SECRET") or secrets.token_hex(32),
+        SECRET_KEY=os.environ.get("STOCKROOM_SECRET"),
         MAX_CONTENT_LENGTH=1_100_000,
         MAX_FORM_MEMORY_SIZE=128_000,
         MAX_FORM_PARTS=16,
@@ -32,6 +31,8 @@ def create_app(config=None):
     app.add_template_filter(format_weight, "weight_kg")
     with app.app_context():
         init_db()
+        if not app.secret_key:
+            app.secret_key = signing_secret()
 
     @app.template_filter()
     def money(cents):
@@ -45,7 +46,7 @@ def create_app(config=None):
         )
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Referrer-Policy"] = "no-referrer"
-        if response.mimetype == "text/html":
+        if request.endpoint != "static" or response.status_code >= 400:
             response.headers["Cache-Control"] = "no-store"
         return response
 

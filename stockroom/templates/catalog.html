@@ -1,11 +1,12 @@
 {% extends "base.html" %}
+{% from "icons.html" import icon %}
 {% block title %}{{ "Manage products" if manage else "Shop" }}{% endblock %}
 {% block content %}
 {% set endpoint = 'web.manage' if manage else 'web.catalog' %}
-<section class="intro">
+<section class="intro catalog-intro">
   <div>
     <h1>{{ "Manage products" if manage else "Product catalog" }}</h1>
-    <p>{{ "Maintain the catalog, update stock, and import product data." if manage else "Browse the catalog and place a simulated order." }}</p>
+    <p>{{ "Maintain the catalog, update stock, and import product data." if manage else "Browse products and place a simulated order." }}</p>
   </div>
   {% if manage %}
     <div class="actions">
@@ -14,11 +15,13 @@
     </div>
   {% endif %}
 </section>
-<form class="filters panel" action="{{ url_for(endpoint) }}" method="get" role="search">
-  <label class="search-field">Search products
+<form class="filters" action="{{ url_for(endpoint) }}" method="get" role="search">
+  <label class="search-field input-icon">
+    <span class="sr-only">Search products</span>{{ icon('search') }}
     <input type="search" name="q" maxlength="120" value="{{ q }}" placeholder="Search by name, SKU, or description">
   </label>
-  <label>Category
+  <label class="category-field input-icon">
+    <span class="sr-only">Category</span>{{ icon('category') }}
     <select name="category">
       <option value="">All categories</option>
       {% for item in categories %}
@@ -41,17 +44,29 @@
         {% for product in products %}
           <tr>
             <th scope="row" class="product-cell">
-              <div class="product-name">{{ product.name }}</div>
-              <div class="sku">{{ product.sku }}</div>
+              <div class="product-identity">
+                <span class="product-icon">{{ icon(product.category) }}</span>
+                <div>
+                  <div class="product-name">{{ product.name }}</div>
+                  <div class="sku" id="sku-{{ product.id }}">{{ product.sku }}</div>
+                  <div class="mobile-category">{{ product.category }}</div>
+                </div>
+              </div>
             </th>
             <td>{{ product.category }}</td>
             <td class="price">{{ product.price_cents | money }}</td>
-            <td>{% if product.stock %}<span class="stock">{{ "{:,}".format(product.stock) }} in stock</span>{% else %}<span class="stock out">Out of stock</span>{% endif %}</td>
+            <td>
+              {% if product.stock %}
+                <span class="stock"><span>{{ "{:,}".format(product.stock) }}<span class="stock-label"> in stock</span></span></span>
+              {% else %}
+                <span class="stock out">Out of stock</span>
+              {% endif %}
+            </td>
             <td class="row-action">
               {% if manage %}
-                <a class="button secondary small" href="{{ url_for('web.edit_product', product_id=product.id) }}" aria-label="Edit {{ product.name }}">Edit</a>
+                <a class="button secondary small" href="{{ url_for('web.edit_product', product_id=product.id) }}" aria-label="Edit {{ product.name }}" aria-describedby="sku-{{ product.id }}">Edit</a>
               {% else %}
-                <a class="button secondary small" href="{{ url_for('web.checkout', product_id=product.id) }}" aria-label="View {{ product.name }}">View</a>
+                <a class="button secondary small" href="{{ url_for('web.checkout', product_id=product.id) }}" aria-label="View {{ product.name }}" aria-describedby="sku-{{ product.id }}">View</a>
               {% endif %}
             </td>
           </tr>

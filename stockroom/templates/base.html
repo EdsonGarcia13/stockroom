@@ -1,21 +1,21 @@
+{% from "icons.html" import icon -%}
 <!doctype html>
-<html lang="en">
+<html lang="en" data-astryx-theme="neutral">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Catalog{% endblock %} · Stockroom</title>
   <link rel="icon" href="{{ url_for('static', filename='icon.svg') }}" type="image/svg+xml">
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/astryx-neutral-0.7.12.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+  {% block scripts %}{% endblock %}
 </head>
 <body>
   <a class="skip" href="#main">Skip to content</a>
   <header class="site-header">
     <div class="shell header-inner">
       <a class="brand" href="{{ url_for('web.catalog') }}">
-        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round">
-          <path d="M12 2.5 21 7v10l-9 4.5L3 17V7l9-4.5Z M3 7l9 4.5L21 7 M12 11.5v10 M7.5 4.75l9 4.5"/>
-        </svg>
-        Stockroom
+        {{ icon('box') }} Stockroom
       </a>
       <nav aria-label="Main">
         <a href="{{ url_for('web.catalog') }}"{% if request.endpoint in ['web.catalog', 'web.checkout', 'web.receipt'] %} aria-current="page"{% endif %}>Shop</a>

@@ -1,10 +1,13 @@
 {% extends "base.html" %}
+{% from "icons.html" import icon %}
 {% block title %}Order confirmed{% endblock %}
 {% block content %}
 <div class="narrow">
-  <a class="back" href="{{ url_for('web.catalog') }}">← Product catalog</a>
-  <section class="intro"><div><h1>Order confirmed</h1><p>Your simulated payment was approved and stock was updated.</p></div></section>
-  <section class="panel content-panel stack" aria-label="Order receipt">
+  <a class="back" href="{{ url_for('web.catalog') }}">{{ icon('arrow') }} Product catalog</a>
+  <section class="intro receipt-heading">
+    {{ icon('check') }} <div><h1>Order confirmed</h1><p>Your simulated payment was approved and stock was updated.</p></div>
+  </section>
+  <section class="panel content-panel stack receipt-panel" aria-label="Order receipt">
     <h2>Order receipt</h2>
     <dl class="facts">
       <div><dt>Order ID</dt><dd class="sku">{{ order.id }}</dd></div>

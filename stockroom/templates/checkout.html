@@ -1,8 +1,14 @@
 {% extends "base.html" %}
+{% from "icons.html" import icon %}
 {% block title %}{{ product.name }}{% endblock %}
+{% block scripts %}<script defer src="{{ url_for('static', filename='checkout.js') }}"></script>{% endblock %}
 {% block content %}
-<a class="back" href="{{ url_for('web.catalog') }}">← Product catalog</a>
-<section class="intro"><div><h1>{{ product.name }}</h1><p>{{ product.category }} · {{ product.sku }}</p></div></section>
+<div class="narrow checkout">
+<a class="back" href="{{ url_for('web.catalog') }}">{{ icon('arrow') }} Product catalog</a>
+<section class="intro product-heading">
+  <span class="product-icon">{{ icon(product.category) }}</span>
+  <div><h1>{{ product.name }}</h1><p>{{ product.category }} · {{ product.sku }}</p></div>
+</section>
 <div class="checkout-grid">
   <section class="panel content-panel stack">
     <h2>Product details</h2>
@@ -19,16 +25,21 @@
     <p class="large-price">{{ product.price_cents | money }} <span>per unit</span></p>
     {% if error %}<p class="notice error" role="alert">{{ error }}</p>{% endif %}
     {% if product.stock %}
-      <form class="stack" method="post">
+      <form class="stack" method="post" data-checkout data-unit-cents="{{ product.price_cents }}">
         <input type="hidden" name="csrf" value="{{ csrf_token() }}">
         <input type="hidden" name="quote" value="{{ quote }}">
-        <label>Quantity<input type="number" name="quantity" min="1" max="{{ product.stock }}" step="1" value="{{ quantity }}" required></label>
-        <button>Place demo order</button>
+        <label class="quantity-field">Quantity<input type="number" name="quantity" min="1" max="{{ product.stock }}" step="1" value="{{ quantity }}" required></label>
+        <div class="order-total" hidden>
+          <label for="order-total">Order total</label>
+          <output id="order-total"></output>
+        </div>
+        <button>{{ icon('cart') }} <span>Place demo order</span></button>
       </form>
-      <p class="muted">Payment is simulated. No card details are collected.</p>
+      <p class="muted payment-note">Simulated payment. No real charges are made.</p>
     {% else %}
       <p class="notice">This product is currently out of stock.</p>
     {% endif %}
   </section>
+</div>
 </div>
 {% endblock %}

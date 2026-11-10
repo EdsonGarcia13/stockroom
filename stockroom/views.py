@@ -2,7 +2,7 @@ import secrets
 import sqlite3
 
 from flask import Blueprint, abort, current_app, flash, redirect, render_template, request, session, url_for
-from itsdangerous import BadSignature, URLSafeTimedSerializer
+from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
 from .catalog import (
     INSERT_PRODUCT, ValidationError, format_weight, import_products, product_values, search_products, whole_number,
@@ -152,13 +152,22 @@ def quote_serializer():
     return URLSafeTimedSerializer(current_app.secret_key, salt="stockroom-checkout-v1")
 
 
-def checkout_page(product, *, error=None, quantity="1", status=200):
-    quote = quote_serializer().dumps({
-        "id": secrets.token_urlsafe(24),
-        "product": product["id"],
-        "price": product["price_cents"],
-    })
+def checkout_page(product, *, error=None, quantity="1", status=200, quote=None):
+    if quote is None:
+        quote = quote_serializer().dumps({
+            "id": secrets.token_urlsafe(24),
+            "product": product["id"],
+            "price": product["price_cents"],
+        })
     return render_template("checkout.html", product=product, quote=quote, error=error, quantity=quantity), status
+
+
+def read_quote(token):
+    serializer = quote_serializer()
+    try:
+        return serializer.loads(token, max_age=QUOTE_LIFETIME), False
+    except SignatureExpired:
+        return serializer.loads(token), True
 
 
 @web.route("/products/<int:product_id>", methods=["GET", "POST"])
@@ -166,18 +175,23 @@ def checkout(product_id):
     if request.method == "GET":
         return checkout_page(get_product(product_id))
     quantity_text = request.form.get("quantity", "")
+    token = request.form.get("quote", "")
+    try:
+        quote, expired = read_quote(token)
+    except BadSignature:
+        return checkout_page(get_product(product_id), error="This checkout is invalid. Review the current price and try again.", status=409)
+    if quote["product"] != product_id:
+        return checkout_page(get_product(product_id), error="Review this product before placing an order.", status=422)
     try:
         quantity = whole_number(quantity_text, "Quantity", 1, 999_999)
-        quote = quote_serializer().loads(request.form.get("quote", ""), max_age=QUOTE_LIFETIME)
-        if quote["product"] != product_id:
-            raise ValidationError("Review this product before placing an order.")
-    except BadSignature:
-        return checkout_page(get_product(product_id), error="This checkout expired. Review the current price and try again.", status=409)
     except ValidationError as error:
-        return checkout_page(get_product(product_id), error=str(error), quantity=quantity_text, status=422)
+        return checkout_page(
+            get_product(product_id), error=str(error), quantity=quantity_text, status=422, quote=token,
+        )
 
     db = get_db()
     conflict = None
+    retry_quote = None
     with write_transaction(db):
         order = db.execute("SELECT id, quantity FROM orders WHERE id = ?", (quote["id"],)).fetchone()
         if order is not None:
@@ -187,7 +201,9 @@ def checkout(product_id):
                 )), 409
             return redirect(url_for("web.receipt", order_id=order["id"]), 303)
         product = get_product(product_id)
-        if product["price_cents"] != quote["price"]:
+        if expired:
+            conflict = "This checkout expired. Review the current price before placing the order."
+        elif product["price_cents"] != quote["price"]:
             conflict = "The price changed. Review the current price before placing the order."
         else:
             result = db.execute(
@@ -196,6 +212,7 @@ def checkout(product_id):
             )
             if not result.rowcount:
                 conflict = f"Only {product['stock']:,} units are available. Choose a smaller quantity."
+                retry_quote = token
             else:
                 db.execute(
                     """
@@ -205,7 +222,7 @@ def checkout(product_id):
                     (quote["id"], product_id, product["name"], product["sku"], product["price_cents"], quantity),
                 )
     if conflict:
-        return checkout_page(product, error=conflict, quantity=quantity_text, status=409)
+        return checkout_page(product, error=conflict, quantity=quantity_text, status=409, quote=retry_quote)
     return redirect(url_for("web.receipt", order_id=quote["id"]), 303)
 
 

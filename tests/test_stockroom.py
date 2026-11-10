@@ -5,6 +5,9 @@ import threading
 import unittest
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from unittest.mock import patch
+
+from itsdangerous import TimestampSigner
 
 from stockroom import create_app
 from stockroom.db import get_db
@@ -125,6 +128,79 @@ class StockroomTests(unittest.TestCase):
         self.assertIn(b"$25.98", self.client.get(first.location).data)
         with self.app.app_context():
             self.assertEqual(get_db().execute("SELECT count(*) FROM orders").fetchone()[0], 1)
+
+    def test_committed_checkout_survives_expiry_and_restart_but_unused_quote_expires(self):
+        config = {**self.app.config, "SECRET_KEY": None}
+        self.app = create_app(config)
+        self.client = self.app.test_client()
+        product_id = self.add_product()
+        path = f"/products/{product_id}"
+        with patch.object(TimestampSigner, "get_timestamp", return_value=10_000):
+            ordered = self.checkout_form(self.client, product_id)
+            unused = self.checkout_form(self.client, product_id)
+            first = self.client.post(path, data=ordered)
+        self.assertEqual(first.status_code, 303)
+        cookie = self.client.get_cookie("session")
+
+        restarted = create_app(config)
+        client = restarted.test_client()
+        client.set_cookie("session", cookie.value)
+        with patch.object(TimestampSigner, "get_timestamp", return_value=11_000):
+            replay = client.post(path, data=ordered)
+            self.assertEqual(replay.status_code, 303)
+            self.assertEqual(replay.location, first.location)
+            expired = client.post(path, data=unused)
+            self.assertEqual(expired.status_code, 409)
+            self.assertIn(b"This checkout expired", expired.data)
+        with restarted.app_context():
+            db = get_db()
+            self.assertEqual(db.execute("SELECT count(*) FROM orders").fetchone()[0], 1)
+            self.assertEqual(db.execute("SELECT stock FROM products").fetchone()[0], 1)
+
+    def test_dynamic_responses_are_uncached_and_static_css_revalidates(self):
+        for path in ("/", "/manage", "/healthz"):
+            self.assertEqual(self.client.get(path).headers["Cache-Control"], "no-store")
+        product_id = self.add_product()
+        path = f"/products/{product_id}"
+        checkout = self.client.get(path)
+        self.assertEqual(checkout.headers["Cache-Control"], "no-store")
+        fields = {
+            "csrf": self.token(checkout, "csrf"),
+            "quote": self.token(checkout, "quote"),
+            "quantity": "1",
+        }
+        redirect = self.client.post(path, data=fields)
+        self.assertEqual(redirect.status_code, 303)
+        self.assertEqual(redirect.headers["Cache-Control"], "no-store")
+        self.assertEqual(self.client.get(redirect.location).headers["Cache-Control"], "no-store")
+        with self.client.get("/static/app.css") as asset:
+            self.assertIn("no-cache", asset.headers["Cache-Control"])
+            tag = asset.headers["ETag"]
+        with self.client.get("/static/app.css", headers={"If-None-Match": tag}) as unchanged:
+            self.assertEqual(unchanged.status_code, 304)
+
+    def test_concurrent_duplicate_submissions_return_one_receipt(self):
+        product_id = self.add_product(stock="2")
+        fields = self.checkout_form(self.client, product_id)
+        cookie = self.client.get_cookie("session")
+        start = threading.Barrier(2, timeout=5)
+
+        def submit():
+            with self.app.test_client() as client:
+                client.set_cookie("session", cookie.value)
+                start.wait()
+                response = client.post(f"/products/{product_id}", data=fields)
+                return response.status_code, response.location
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            requests = [pool.submit(submit) for _ in range(2)]
+            first, replay = [request.result() for request in requests]
+        self.assertEqual(first[0], 303)
+        self.assertEqual(first, replay)
+        with self.app.app_context():
+            db = get_db()
+            self.assertEqual(db.execute("SELECT count(*) FROM orders").fetchone()[0], 1)
+            self.assertEqual(db.execute("SELECT stock FROM products").fetchone()[0], 1)
 
     def test_invalid_quantity_and_stale_price_create_no_order(self):
         product_id = self.add_product()

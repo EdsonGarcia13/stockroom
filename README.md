@@ -26,7 +26,7 @@ py -3.12 -m venv .venv
 .\.venv\Scripts\waitress-serve.exe --listen=127.0.0.1:8000 --call stockroom:create_app
 ```
 
-On macOS or Linux, use `python3.12 -m venv .venv` and use `.venv/bin/python` and `.venv/bin/waitress-serve` in the remaining commands. The app creates its schema on startup. Native runs store data in `instance/stockroom.sqlite3` by default. Set `STOCKROOM_DATABASE` to use a different file or `STOCKROOM_SECRET` to keep the same session and checkout signing key across restarts.
+On macOS or Linux, use `python3.12 -m venv .venv` and use `.venv/bin/python` and `.venv/bin/waitress-serve` in the remaining commands. The app creates its schema on startup. Native runs store data in `instance/stockroom.sqlite3` by default. Set `STOCKROOM_DATABASE` to use a different file. The default signing key persists with the database. Set `STOCKROOM_SECRET` to supply your own key for a native run.
 
 ## Try the main flows
 
@@ -51,7 +51,9 @@ On an empty database, the file adds **88 products**, skips **3 duplicate SKU row
 | --- | --- |
 | What does the local deployment need? | Flask, server-rendered forms, Waitress, and one SQLite file keep startup and review simple. A React client and JSON API would be useful for a richer client, with a separate build and API surface to maintain. |
 | What happens when two buyers request the same stock? | Checkout starts an immediate SQLite write transaction, checks the current price, decrements stock only when enough is available, and inserts the receipt in that same transaction. SQLite serializes writes. PostgreSQL would be a better fit for sustained concurrent writes or multiple application hosts. [SQLite transaction behavior](https://www.sqlite.org/lang_transaction.html). |
-| What if a form is stale or a request is replayed? | Checkout uses a signed 15-minute quote. Replaying the same valid quote and quantity returns the original receipt. Changes to price require another review. Edits and deletes compare a product version, which also changes after a purchase, to protect inventory from stale forms. |
+| What if a form is stale or a request is replayed? | A signed quote can create a new order for 15 minutes. After checkout commits, replaying the same signed form and quantity in a valid browser session returns the original receipt even after quote expiry or a restart with the same database and signing key. A new checkout creates a separate quote. Changes to price require another review. Edits and deletes compare a product version, which also changes after a purchase, to protect inventory from stale forms. |
+| What should be cached? | Catalog pages, checkout, receipts, and redirects use `Cache-Control: no-store` so sessions and current stock stay fresh. Browsers can keep static files and revalidate them using ETags. SQLite serves current inventory directly, which keeps cache invalidation and an extra service out of the local deployment. |
+| How is the interface styled? | Stockroom uses Jinja and native HTML controls with the precompiled [Astryx Neutral theme](https://astryx.atmeta.com/docs/styling-overview) (version 0.7.12, MIT). The CSS ships locally with the app. A small checkout script previews the total and gives feedback while submitting. Checkout and validation work through the server. |
 | How should money and order history be stored? | Prices use integer cents and weights use integer grams. Receipts snapshot the product name, SKU, quantity, and price, so later edits or deletion preserve the original purchase record. |
 | Should imports update matching products or reject the whole batch? | The importer skips duplicate SKUs and reports bad rows so reviewers can use the clean records in the supplied file. An inventory-sync mode would need explicit update rules, especially for stock. |
 | How far should search go? | Paginated substring search covers name, SKU, description, and category, with an exact category filter. This is enough for the sample catalog. Full-text indexing would make sense for relevance ranking or larger catalogs. |
@@ -66,6 +68,6 @@ With the dependencies installed, run:
 python -m unittest discover -s tests -v
 ```
 
-Use `.\.venv\Scripts\python.exe` on Windows or `.venv/bin/python` on macOS and Linux if the environment is inactive. The suite uses temporary databases and covers CRUD, search, the original CSV, unsafe strings, malformed input, stale edits and prices, repeated checkout, and two simultaneous purchases of the last unit.
+Use `.\.venv\Scripts\python.exe` on Windows or `.venv/bin/python` on macOS and Linux if the environment is inactive. The suite uses temporary databases and covers CRUD, search, the original CSV, unsafe strings, malformed input, stale edits and prices, checkout replay after expiry and restart, concurrent duplicate submissions, purchases competing for the last unit, and cache headers.
 
 AI assistance was used during implementation. Design rationale is recorded here.
