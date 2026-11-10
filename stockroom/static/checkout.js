@@ -44,6 +44,12 @@ if (cart) {
 
   for (const input of quantityInputs) {
     const update = input.form.querySelector(".cart-update");
+    const remove = input.form.querySelector('button[value="remove"]');
+    remove.addEventListener("pointerdown", (event) => {
+      if (event.button === 0 && document.activeElement === input && input.value !== input.defaultValue) {
+        event.preventDefault();
+      }
+    });
     input.addEventListener("change", () => {
       if (input.value !== input.defaultValue && input.validity.valid) {
         input.form.requestSubmit(update);
