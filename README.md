@@ -30,7 +30,7 @@ On macOS or Linux, use `python3.12 -m venv .venv` and use `.venv/bin/python` and
 
 ## Try the main flows
 
-1. In **Shop**, search for `RS-001` or select a category. Use **Add** on two products, then open **Cart**. Change a quantity with **Update**, or use **Remove**. Select **Place demo order** to get one receipt with all items. The catalog shows the new stock counts.
+1. In **Shop**, search for `RS-001` or select a category. Use **Add** on two products, then open **Cart**. Change a quantity and leave the field to save it, or use **Remove**. With JavaScript disabled, use **Update** to save quantities. Select **Place demo order** to get one receipt with all items. The catalog shows the new stock counts.
 2. In **Manage products**, create a product, search for it by SKU, edit it, and use **Delete product** on the edit screen to remove it.
 3. In **Import CSV**, upload the challenge file. Review the row numbers and reasons for duplicate and invalid records. Uploading it again preserves existing products and stock counts.
 

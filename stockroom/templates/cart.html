@@ -32,7 +32,7 @@
               <label>Quantity <span class="sr-only">for {{ line.name }}</span>
                 <input name="quantity" type="number" min="1" max="999999" required value="{{ line.quantity }}">
               </label>
-              <button class="secondary small" name="action" value="update" aria-label="Update {{ line.name }}">Update</button>
+              <button class="secondary small cart-update" name="action" value="update" aria-label="Update {{ line.name }}">Update</button>
               <button class="text-button" name="action" value="remove" formnovalidate aria-label="Remove {{ line.name }}">Remove</button>
             </form>
           </li>
@@ -41,6 +41,7 @@
     </section>
     <aside class="panel content-panel stack" aria-labelledby="cart-summary">
       <h2 id="cart-summary">Order summary</h2>
+      <p class="muted" role="status" data-cart-saving hidden>Saving quantity…</p>
       <dl class="facts"><div class="total"><dt>Total</dt><dd>{{ total | money }}</dd></div></dl>
       {% if quote %}
         <form class="stack" method="post" action="{{ url_for('basket.checkout') }}" data-cart-checkout>

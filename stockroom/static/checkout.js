@@ -34,3 +34,45 @@ if (form) {
   });
   updateTotal();
 }
+
+const cart = document.querySelector(".cart-layout");
+
+if (cart) {
+  const quantityInputs = [...cart.querySelectorAll(".cart-item-form input[name=quantity]")];
+  const savingMessage = cart.querySelector("[data-cart-saving]");
+  let saving = false;
+
+  for (const input of quantityInputs) {
+    const update = input.form.querySelector(".cart-update");
+    input.addEventListener("change", () => {
+      if (input.value !== input.defaultValue && input.validity.valid) {
+        input.form.requestSubmit(update);
+      }
+    });
+    update.hidden = true;
+  }
+
+  cart.addEventListener("submit", (event) => {
+    if (saving) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    } else if (event.submitter?.matches(".cart-update")) {
+      saving = true;
+      savingMessage.hidden = false;
+    } else if (event.target.matches("[data-cart-checkout]")) {
+      const edited = quantityInputs.find(input => input.value !== input.defaultValue);
+      if (edited) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        if (edited.reportValidity()) {
+          edited.form.requestSubmit(edited.form.querySelector(".cart-update"));
+        }
+      }
+    }
+  }, { capture: true });
+
+  window.addEventListener("pageshow", () => {
+    saving = false;
+    savingMessage.hidden = true;
+  });
+}
