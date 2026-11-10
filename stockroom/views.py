@@ -1,17 +1,17 @@
 import secrets
 import sqlite3
 
-from flask import Blueprint, abort, current_app, flash, redirect, render_template, request, session, url_for
-from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
+from flask import Blueprint, abort, flash, redirect, render_template, request, session, url_for
+from itsdangerous import BadSignature
 
 from .catalog import (
     INSERT_PRODUCT, ValidationError, format_weight, import_products, product_values, search_products, whole_number,
 )
 from .db import get_db, write_transaction
+from .orders import PRODUCT_QUOTE, StockConflict, order_items, place_order, quote_serializer, read_quote
 
 
 web = Blueprint("web", __name__)
-QUOTE_LIFETIME = 900
 
 
 def csrf_token():
@@ -148,26 +148,14 @@ def upload():
     return render_template("import.html", report=report)
 
 
-def quote_serializer():
-    return URLSafeTimedSerializer(current_app.secret_key, salt="stockroom-checkout-v1")
-
-
 def checkout_page(product, *, error=None, quantity="1", status=200, quote=None):
     if quote is None:
-        quote = quote_serializer().dumps({
+        quote = quote_serializer(PRODUCT_QUOTE).dumps({
             "id": secrets.token_urlsafe(24),
             "product": product["id"],
             "price": product["price_cents"],
         })
     return render_template("checkout.html", product=product, quote=quote, error=error, quantity=quantity), status
-
-
-def read_quote(token):
-    serializer = quote_serializer()
-    try:
-        return serializer.loads(token, max_age=QUOTE_LIFETIME), False
-    except SignatureExpired:
-        return serializer.loads(token), True
 
 
 @web.route("/products/<int:product_id>", methods=["GET", "POST"])
@@ -177,7 +165,7 @@ def checkout(product_id):
     quantity_text = request.form.get("quantity", "")
     token = request.form.get("quote", "")
     try:
-        quote, expired = read_quote(token)
+        quote, expired = read_quote(token, PRODUCT_QUOTE)
     except BadSignature:
         return checkout_page(get_product(product_id), error="This checkout is invalid. Review the current price and try again.", status=409)
     if quote["product"] != product_id:
@@ -190,45 +178,38 @@ def checkout(product_id):
         )
 
     db = get_db()
-    conflict = None
-    retry_quote = None
-    with write_transaction(db):
-        order = db.execute("SELECT id, quantity FROM orders WHERE id = ?", (quote["id"],)).fetchone()
-        if order is not None:
-            if order["quantity"] != quantity:
-                return render_template("error.html", title="Order already placed", message=(
-                    "Start a new checkout to place an order with a different quantity."
-                )), 409
-            return redirect(url_for("web.receipt", order_id=order["id"]), 303)
-        product = get_product(product_id)
-        if expired:
-            conflict = "This checkout expired. Review the current price before placing the order."
-        elif product["price_cents"] != quote["price"]:
-            conflict = "The price changed. Review the current price before placing the order."
-        else:
-            result = db.execute(
-                "UPDATE products SET stock = stock - ?, version = version + 1 WHERE id = ? AND stock >= ?",
-                (quantity, product_id, quantity),
-            )
-            if not result.rowcount:
-                conflict = f"Only {product['stock']:,} units are available. Choose a smaller quantity."
-                retry_quote = token
-            else:
-                db.execute(
-                    """
-                    INSERT INTO orders (id, product_id, product_name, sku, unit_price_cents, quantity)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                    """,
-                    (quote["id"], product_id, product["name"], product["sku"], product["price_cents"], quantity),
+    try:
+        with write_transaction(db):
+            items = order_items(db, quote["id"])
+            if items:
+                if items[0]["quantity"] != quantity:
+                    return render_template("error.html", title="Order already placed", message=(
+                        "Start a new checkout to place an order with a different quantity."
+                    )), 409
+                return redirect(url_for("web.receipt", order_id=quote["id"]), 303)
+            product = get_product(product_id)
+            if expired:
+                return checkout_page(
+                    product, error="This checkout expired. Review the current price before placing the order.",
+                    quantity=quantity_text, status=409,
                 )
-    if conflict:
-        return checkout_page(product, error=conflict, quantity=quantity_text, status=409, quote=retry_quote)
+            if product["price_cents"] != quote["price"]:
+                return checkout_page(
+                    product, error="The price changed. Review the current price before placing the order.",
+                    quantity=quantity_text, status=409,
+                )
+            place_order(db, quote["id"], [(product, quantity)])
+    except StockConflict as error:
+        return checkout_page(product, error=str(error), quantity=quantity_text, status=409, quote=token)
     return redirect(url_for("web.receipt", order_id=quote["id"]), 303)
 
 
 @web.get("/orders/<order_id>")
 def receipt(order_id):
-    order = get_db().execute("SELECT * FROM orders WHERE id = ?", (order_id,)).fetchone()
+    db = get_db()
+    order = db.execute("SELECT * FROM orders WHERE id = ?", (order_id,)).fetchone()
     if order is None:
         abort(404)
-    return render_template("receipt.html", order=order)
+    items = order_items(db, order_id)
+    total = sum(item["unit_price_cents"] * item["quantity"] for item in items)
+    return render_template("receipt.html", order=order, items=items, total=total)

@@ -20,12 +20,13 @@
       <nav aria-label="Main">
         <a href="{{ url_for('web.catalog') }}"{% if request.endpoint in ['web.catalog', 'web.checkout', 'web.receipt'] %} aria-current="page"{% endif %}>Shop</a>
         <a href="{{ url_for('web.manage') }}"{% if request.endpoint in ['web.manage', 'web.edit_product', 'web.upload'] %} aria-current="page"{% endif %}>Manage products</a>
+        <a class="cart-link" href="{{ url_for('basket.cart') }}"{% if request.blueprint == 'basket' %} aria-current="page"{% endif %}>{{ icon('cart') }} Cart <span class="cart-count">{{ "{:,}".format(cart_count()) }}</span></a>
       </nav>
     </div>
   </header>
   <main id="main" class="shell">
-    {% for message in get_flashed_messages() %}
-      <p class="notice success" role="status">{{ message }}</p>
+    {% for category, message in get_flashed_messages(with_categories=true) %}
+      <p class="notice {{ 'error' if category == 'error' else 'success' }}" role="{{ 'alert' if category == 'error' else 'status' }}">{{ message }}</p>
     {% endfor %}
     {% block content %}{% endblock %}
   </main>

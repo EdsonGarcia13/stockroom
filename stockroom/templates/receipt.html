@@ -11,11 +11,22 @@
     <h2>Order receipt</h2>
     <dl class="facts">
       <div><dt>Order ID</dt><dd class="sku">{{ order.id }}</dd></div>
-      <div><dt>Product</dt><dd>{{ order.product_name }} · {{ order.sku }}</dd></div>
-      <div><dt>Quantity</dt><dd>{{ "{:,}".format(order.quantity) }}</dd></div>
-      <div><dt>Unit price</dt><dd>{{ order.unit_price_cents | money }}</dd></div>
       <div><dt>Placed (UTC)</dt><dd>{{ order.created_at }}</dd></div>
-      <div class="total"><dt>Total</dt><dd>{{ (order.unit_price_cents * order.quantity) | money }}</dd></div>
+    </dl>
+    <ul class="cart-items">
+      {% for item in items %}
+        <li class="receipt-item">
+          <div>
+            <strong>{{ item.product_name }}</strong>
+            <div class="sku">{{ item.sku }}</div>
+            <p class="muted">{{ "{:,}".format(item.quantity) }} × {{ item.unit_price_cents | money }}</p>
+          </div>
+          <strong class="price">{{ (item.unit_price_cents * item.quantity) | money }}</strong>
+        </li>
+      {% endfor %}
+    </ul>
+    <dl class="facts">
+      <div class="total"><dt>Total</dt><dd>{{ total | money }}</dd></div>
     </dl>
     <div><a class="button" href="{{ url_for('web.catalog') }}">Continue shopping</a></div>
   </section>

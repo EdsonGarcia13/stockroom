@@ -33,7 +33,8 @@
           <label for="order-total">Order total</label>
           <output id="order-total"></output>
         </div>
-        <button>{{ icon('cart') }} <span>Place demo order</span></button>
+        <button class="secondary" formaction="{{ url_for('basket.change_item', product_id=product.id, source='product') }}" name="action" value="add">{{ icon('cart') }} Add to cart</button>
+        <button data-place-order><span>Place demo order</span></button>
       </form>
       <p class="muted payment-note">Simulated payment. No real charges are made.</p>
     {% else %}

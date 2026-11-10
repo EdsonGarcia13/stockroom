@@ -11,6 +11,7 @@ from .db import close_db, get_db, init_db, signing_secret
 
 
 def create_app(config=None):
+    from .cart import basket
     from .views import web
 
     app = Flask(__name__)
@@ -28,6 +29,7 @@ def create_app(config=None):
     Path(app.config["DATABASE"]).parent.mkdir(parents=True, exist_ok=True)
     app.teardown_appcontext(close_db)
     app.register_blueprint(web)
+    app.register_blueprint(basket)
     app.add_template_filter(format_weight, "weight_kg")
     with app.app_context():
         init_db()

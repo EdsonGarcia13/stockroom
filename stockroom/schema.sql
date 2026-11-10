@@ -12,13 +12,32 @@ CREATE TABLE IF NOT EXISTS products (
 
 CREATE TABLE IF NOT EXISTS orders (
     id TEXT PRIMARY KEY,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+) STRICT;
+
+CREATE TABLE IF NOT EXISTS order_items (
+    order_id TEXT NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
     product_id INTEGER NOT NULL,
     product_name TEXT NOT NULL,
     sku TEXT NOT NULL,
     unit_price_cents INTEGER NOT NULL CHECK (unit_price_cents >= 0),
     quantity INTEGER NOT NULL CHECK (quantity BETWEEN 1 AND 999999),
-    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    PRIMARY KEY (order_id, product_id)
 ) STRICT;
+
+CREATE TABLE IF NOT EXISTS carts (
+    id TEXT PRIMARY KEY,
+    checkout_id TEXT NOT NULL UNIQUE
+) STRICT;
+
+CREATE TABLE IF NOT EXISTS cart_items (
+    cart_id TEXT NOT NULL REFERENCES carts(id) ON DELETE CASCADE,
+    product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    quantity INTEGER NOT NULL CHECK (quantity BETWEEN 1 AND 999999),
+    PRIMARY KEY (cart_id, product_id)
+) STRICT;
+
+CREATE INDEX IF NOT EXISTS cart_items_product_id ON cart_items(product_id);
 
 CREATE TABLE IF NOT EXISTS app_settings (
     name TEXT PRIMARY KEY,

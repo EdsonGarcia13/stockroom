@@ -6,7 +6,7 @@
 <section class="intro catalog-intro">
   <div>
     <h1>{{ "Manage products" if manage else "Product catalog" }}</h1>
-    <p>{{ "Maintain the catalog, update stock, and import product data." if manage else "Browse products and place a simulated order." }}</p>
+    <p>{{ "Maintain the catalog, update stock, and import product data." if manage else "Browse products and add your picks to the cart." }}</p>
   </div>
   {% if manage %}
     <div class="actions">
@@ -66,7 +66,15 @@
               {% if manage %}
                 <a class="button secondary small" href="{{ url_for('web.edit_product', product_id=product.id) }}" aria-label="Edit {{ product.name }}" aria-describedby="sku-{{ product.id }}">Edit</a>
               {% else %}
-                <a class="button secondary small" href="{{ url_for('web.checkout', product_id=product.id) }}" aria-label="View {{ product.name }}" aria-describedby="sku-{{ product.id }}">View</a>
+                <div class="catalog-actions">
+                  <a class="button secondary small" href="{{ url_for('web.checkout', product_id=product.id) }}" aria-label="View {{ product.name }}" aria-describedby="sku-{{ product.id }}">View</a>
+                  {% if product.stock %}
+                    <form method="post" action="{{ url_for('basket.change_item', product_id=product.id, source='catalog', q=q, category=category, page=page) }}">
+                      <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+                      <button class="small" name="action" value="add" aria-label="Add {{ product.name }} to cart" aria-describedby="sku-{{ product.id }}">Add</button>
+                    </form>
+                  {% endif %}
+                </div>
               {% endif %}
             </td>
           </tr>
